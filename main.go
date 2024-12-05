@@ -1,72 +1,145 @@
 package main
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
-// Estructura Libro representa un libro en el sistema.
+// Libro representa los detalles de un libro en el sistema.
 type Libro struct {
-	ID         int    // Identificador único del libro
-	Titulo     string // Título del libro
-	Autor      string // Autor del libro
-	Anio       int    // Año de publicación del libro
-	Disponible bool   // Estado de disponibilidad del libro (true o false)
+	id         int    // Identificador único del libro (privado)
+	titulo     string // Título del libro (privado)
+	autor      string // Autor del libro (privado)
+	anio       int    // Año de publicación del libro (privado)
+	disponible bool   // Estado de disponibilidad del libro (privado)
 }
 
-// Base de datos simulada (slice de libros)
-var libros = []Libro{
-	{ID: 1, Titulo: "El Principito", Autor: "Antoine de Saint-Exupéry", Anio: 1943, Disponible: true},
-	{ID: 2, Titulo: "1984", Autor: "George Orwell", Anio: 1949, Disponible: true},
-	{ID: 3, Titulo: "Cien Años de Soledad", Autor: "Gabriel García Márquez", Anio: 1967, Disponible: true},
+// Métodos encapsulados (Setters y Getters)
+// SetID permite configurar el ID del libro de manera controlada.
+func (l *Libro) SetID(id int) error {
+	if id <= 0 {
+		return errors.New("el ID debe ser un número positivo")
+	}
+	l.id = id
+	return nil
 }
 
-// actualizarLibro actualiza la disponibilidad de un libro basado en su ID.
-func actualizarLibro(id int, disponible bool) {
-	for i, libro := range libros {
-		if libro.ID == id {
-			libros[i].Disponible = disponible
-			fmt.Printf("Libro actualizado exitosamente: %+v\n", libros[i]) // Detalles del libro actualizado
-			return
+// GetID devuelve el ID del libro.
+func (l *Libro) GetID() int {
+	return l.id
+}
+
+// SetDisponible permite modificar el estado de disponibilidad.
+func (l *Libro) SetDisponible(disponible bool) {
+	l.disponible = disponible
+}
+
+// GetDisponible devuelve el estado de disponibilidad del libro.
+func (l *Libro) GetDisponible() bool {
+	return l.disponible
+}
+
+// Operaciones con libros (Interfaz)
+type OperacionesLibro interface {
+	BuscarLibro(id int) (*Libro, error)
+	ActualizarLibro(id int, disponible bool) error
+	EliminarLibro(id int) error
+}
+
+// GestorLibros gestiona la lista de libros y sus operaciones.
+type GestorLibros struct {
+	libros []Libro
+}
+
+// BuscarLibro busca un libro por ID y lo devuelve.
+func (g *GestorLibros) BuscarLibro(id int) (*Libro, error) {
+	for _, libro := range g.libros {
+		if libro.GetID() == id {
+			return &libro, nil
 		}
 	}
-	fmt.Println("Libro no encontrado. No se pudo actualizar.")
+	return nil, errors.New("libro no encontrado")
 }
 
-// eliminarLibro elimina un libro de la lista de libros basado en su ID.
-func eliminarLibro(id int) {
-	for i, libro := range libros {
-		if libro.ID == id {
-			libros = append(libros[:i], libros[i+1:]...)             // Remueve el libro de la lista
-			fmt.Printf("Libro eliminado exitosamente: %+v\n", libro) // Muestra el libro eliminado
-			return
+// ActualizarLibro actualiza el estado de disponibilidad de un libro.
+func (g *GestorLibros) ActualizarLibro(id int, disponible bool) error {
+	for i, libro := range g.libros {
+		if libro.GetID() == id {
+			g.libros[i].SetDisponible(disponible)
+			fmt.Println("Libro actualizado exitosamente.")
+			return nil
 		}
 	}
-	fmt.Println("Libro no encontrado. No se pudo eliminar.")
+	return errors.New("libro no encontrado")
 }
 
-// mostrarLibros muestra todos los libros actuales en la lista.
-func mostrarLibros() {
-	fmt.Println("\nLista de libros en el sistema:")
-	for _, libro := range libros {
-		fmt.Printf("- %+v\n", libro)
+// EliminarLibro elimina un libro por su ID.
+func (g *GestorLibros) EliminarLibro(id int) error {
+	for i, libro := range g.libros {
+		if libro.GetID() == id {
+			g.libros = append(g.libros[:i], g.libros[i+1:]...)
+			fmt.Println("Libro eliminado exitosamente.")
+			return nil
+		}
+	}
+	return errors.New("libro no encontrado")
+}
+
+// MostrarLibros imprime todos los libros disponibles en el sistema.
+func (g *GestorLibros) MostrarLibros() {
+	fmt.Println("Lista de libros:")
+	for _, libro := range g.libros {
+		fmt.Printf("- ID: %d, Título: %s, Autor: %s, Año: %d, Disponible: %t\n",
+			libro.GetID(), libro.titulo, libro.autor, libro.anio, libro.GetDisponible())
 	}
 }
 
-// Función principal del sistema de gestión de libros
+// Función principal
 func main() {
-	fmt.Println("Sistema de Gestión de Libros Electrónicos\n")
+	// Inicializamos los libros
+	librosIniciales := []Libro{
+		{id: 1, titulo: "El Principito", autor: "Antoine de Saint-Exupéry", anio: 1943, disponible: true},
+		{id: 2, titulo: "1984", autor: "George Orwell", anio: 1949, disponible: true},
+		{id: 3, titulo: "Cien Años de Soledad", autor: "Gabriel García Márquez", anio: 1967, disponible: true},
+		{id: 4, titulo: "Don Quijote de la Mancha", autor: "Miguel de Cervantes", anio: 1605, disponible: true},
+		{id: 5, titulo: "El Hobbit", autor: "J.R.R. Tolkien", anio: 1937, disponible: true},
+		{id: 6, titulo: "Orgullo y Prejuicio", autor: "Jane Austen", anio: 1813, disponible: true},
+		{id: 7, titulo: "Matar a un Ruiseñor", autor: "Harper Lee", anio: 1960, disponible: true},
+		{id: 8, titulo: "La Metamorfosis", autor: "Franz Kafka", anio: 1915, disponible: true},
+		{id: 9, titulo: "Ulises", autor: "James Joyce", anio: 1922, disponible: true},
+		{id: 10, titulo: "El Gran Gatsby", autor: "F. Scott Fitzgerald", anio: 1925, disponible: true}}
 
-	// Muestra todos los libros disponibles inicialmente
-	fmt.Println("Mostrando todos los libros disponibles:")
-	mostrarLibros()
+	// Creamos el gestor de libros
+	gestor := GestorLibros{libros: librosIniciales}
 
-	// Actualiza la disponibilidad del libro con ID 1
-	fmt.Println("\nActualizando disponibilidad del libro con ID 1...")
-	actualizarLibro(1, false)
+	// Mostrar libros iniciales
+	fmt.Println("Sistema de Gestión de Libros Electrónicos")
+	gestor.MostrarLibros()
 
-	// Elimina el libro con ID 2
-	fmt.Println("\nEliminando el libro con ID 2...")
-	eliminarLibro(2)
+	// Buscar un libro
+	fmt.Println("\nBuscando el libro con ID 1:")
+	libro, err := gestor.BuscarLibro(1)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		fmt.Printf("Libro encontrado: %+v\n", libro)
+	}
 
-	// Muestra los libros restantes después de las operaciones
-	fmt.Println("\nMostrando libros restantes después de actualizar y eliminar:")
-	mostrarLibros()
+	// Actualizar disponibilidad
+	fmt.Println("\nActualizando disponibilidad del libro con ID 1:")
+	err = gestor.ActualizarLibro(1, false)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		gestor.MostrarLibros()
+	}
+
+	// Eliminar un libro
+	fmt.Println("\nEliminando el libro con ID 1:")
+	err = gestor.EliminarLibro(1)
+	if err != nil {
+		fmt.Println("Error:", err)
+	} else {
+		gestor.MostrarLibros()
+	}
 }
