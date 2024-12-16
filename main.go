@@ -1,145 +1,134 @@
 package main
 
 import (
-	"errors"
-	"fmt"
+	"encoding/json" // Permite codificar y decodificar JSON
+	"fmt"           // Proporciona funciones de entrada/salida
+	"html/template" // Permite renderizar plantillas HTML
+	"net/http"      // Facilita la creación de un servidor web
+	"strconv"       // Convierte cadenas a tipos numéricos
 )
 
-// Libro representa los detalles de un libro en el sistema.
+// Estructura Libro: Representa un libro en el sistema
+// Los tags `json` permiten generar o leer JSON con estos nombres
+
 type Libro struct {
-	id         int    // Identificador único del libro (privado)
-	titulo     string // Título del libro (privado)
-	autor      string // Autor del libro (privado)
-	anio       int    // Año de publicación del libro (privado)
-	disponible bool   // Estado de disponibilidad del libro (privado)
+	ID         int    `json:"id"`         // Identificador del libro
+	Titulo     string `json:"titulo"`     // Título del libro
+	Autor      string `json:"autor"`      // Autor del libro
+	Anio       int    `json:"anio"`       // Año de publicación
+	Disponible bool   `json:"disponible"` // Disponibilidad del libro
 }
 
-// Métodos encapsulados (Setters y Getters)
-// SetID permite configurar el ID del libro de manera controlada.
-func (l *Libro) SetID(id int) error {
-	if id <= 0 {
-		return errors.New("el ID debe ser un número positivo")
-	}
-	l.id = id
-	return nil
+// Base de datos simulada: Slice con información inicial de libros
+var libros = []Libro{
+	{ID: 1, Titulo: "El Principito", Autor: "Antoine de Saint-Exupéry", Anio: 1943, Disponible: true},
+	{ID: 2, Titulo: "1984", Autor: "George Orwell", Anio: 1949, Disponible: true},
+	{ID: 3, Titulo: "Cien Años de Soledad", Autor: "Gabriel García Márquez", Anio: 1967, Disponible: true},
+	{ID: 4, Titulo: "Don Quijote de la Mancha", Autor: "Miguel de Cervantes", Anio: 1605, Disponible: true},
+	{ID: 5, Titulo: "La Casa de los Espíritus", Autor: "Isabel Allende", Anio: 1982, Disponible: true},
+	{ID: 6, Titulo: "El Aleph", Autor: "Jorge Luis Borges", Anio: 1945, Disponible: true},
+	{ID: 7, Titulo: "Crónica de una Muerte Anunciada", Autor: "Gabriel García Márquez", Anio: 1981, Disponible: true},
+	{ID: 8, Titulo: "Ficciones", Autor: "Jorge Luis Borges", Anio: 1944, Disponible: true},
+	{ID: 9, Titulo: "Rayuela", Autor: "Julio Cortázar", Anio: 1963, Disponible: true},
+	{ID: 10, Titulo: "La Sombra del Viento", Autor: "Carlos Ruiz Zafón", Anio: 2001, Disponible: true},
 }
 
-// GetID devuelve el ID del libro.
-func (l *Libro) GetID() int {
-	return l.id
+// Función para mostrar todos los libros usando una plantilla HTML
+func mostrarLibros(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("index.html")) // Carga la plantilla HTML
+	tmpl.Execute(w, libros)                                  // Renderiza la plantilla con la lista de libros
 }
 
-// SetDisponible permite modificar el estado de disponibilidad.
-func (l *Libro) SetDisponible(disponible bool) {
-	l.disponible = disponible
-}
+// Función para buscar un libro por su ID en formato JSON
+func buscarLibro(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id") // Obtiene el ID desde la URL
+	var libroEncontrado *Libro    // Puntero para almacenar el libro encontrado
 
-// GetDisponible devuelve el estado de disponibilidad del libro.
-func (l *Libro) GetDisponible() bool {
-	return l.disponible
-}
-
-// Operaciones con libros (Interfaz)
-type OperacionesLibro interface {
-	BuscarLibro(id int) (*Libro, error)
-	ActualizarLibro(id int, disponible bool) error
-	EliminarLibro(id int) error
-}
-
-// GestorLibros gestiona la lista de libros y sus operaciones.
-type GestorLibros struct {
-	libros []Libro
-}
-
-// BuscarLibro busca un libro por ID y lo devuelve.
-func (g *GestorLibros) BuscarLibro(id int) (*Libro, error) {
-	for _, libro := range g.libros {
-		if libro.GetID() == id {
-			return &libro, nil
+	// Itera sobre la lista de libros para buscar coincidencias
+	for _, libro := range libros {
+		if fmt.Sprintf("%d", libro.ID) == id { // Convierte ID a cadena y compara
+			libroEncontrado = &libro
+			break
 		}
 	}
-	return nil, errors.New("libro no encontrado")
+
+	// Si se encuentra, se responde en formato JSON; si no, error
+	if libroEncontrado != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(libroEncontrado)
+	} else {
+		http.Error(w, "Libro no encontrado", http.StatusNotFound)
+	}
 }
 
-// ActualizarLibro actualiza el estado de disponibilidad de un libro.
-func (g *GestorLibros) ActualizarLibro(id int, disponible bool) error {
-	for i, libro := range g.libros {
-		if libro.GetID() == id {
-			g.libros[i].SetDisponible(disponible)
-			fmt.Println("Libro actualizado exitosamente.")
-			return nil
+// Función para actualizar el estado de disponibilidad de un libro
+func actualizarLibro(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id")                           // Obtiene el ID desde la URL
+	disponible := r.URL.Query().Get("disponible") == "true" // Verifica si es true o false
+	var libroActualizado *Libro                             // Puntero para almacenar el libro actualizado
+
+	// Itera sobre la lista de libros para actualizar su estado
+	for i, libro := range libros {
+		if fmt.Sprintf("%d", libro.ID) == id {
+			libros[i].Disponible = disponible
+			libroActualizado = &libros[i]
+			break
 		}
 	}
-	return errors.New("libro no encontrado")
+
+	// Responde en JSON el libro actualizado o devuelve un error
+	if libroActualizado != nil {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(libroActualizado)
+	} else {
+		http.Error(w, "Libro no encontrado", http.StatusNotFound)
+	}
 }
 
-// EliminarLibro elimina un libro por su ID.
-func (g *GestorLibros) EliminarLibro(id int) error {
-	for i, libro := range g.libros {
-		if libro.GetID() == id {
-			g.libros = append(g.libros[:i], g.libros[i+1:]...)
-			fmt.Println("Libro eliminado exitosamente.")
-			return nil
+// Función para eliminar un libro por su ID
+func eliminarLibro(w http.ResponseWriter, r *http.Request) {
+	id := r.URL.Query().Get("id") // Obtiene el ID del libro a eliminar
+
+	// Itera y elimina el libro encontrado
+	for i, libro := range libros {
+		if fmt.Sprintf("%d", libro.ID) == id {
+			libros = append(libros[:i], libros[i+1:]...) // Elimina el libro del slice
+			w.Write([]byte("Libro eliminado exitosamente"))
+			return
 		}
 	}
-	return errors.New("libro no encontrado")
+	http.Error(w, "Libro no encontrado", http.StatusNotFound)
 }
 
-// MostrarLibros imprime todos los libros disponibles en el sistema.
-func (g *GestorLibros) MostrarLibros() {
-	fmt.Println("Lista de libros:")
-	for _, libro := range g.libros {
-		fmt.Printf("- ID: %d, Título: %s, Autor: %s, Año: %d, Disponible: %t\n",
-			libro.GetID(), libro.titulo, libro.autor, libro.anio, libro.GetDisponible())
+// Función para agregar un nuevo libro
+func agregarLibro(w http.ResponseWriter, r *http.Request) {
+	if r.Method == http.MethodPost { // Solo permite solicitudes POST
+		titulo := r.FormValue("titulo")
+		autor := r.FormValue("autor")
+		anio, _ := strconv.Atoi(r.FormValue("anio"))
+		disponible := r.FormValue("disponible") == "on"
+
+		// Crea un nuevo libro con los datos proporcionados
+		libro := Libro{
+			ID:         len(libros) + 1,
+			Titulo:     titulo,
+			Autor:      autor,
+			Anio:       anio,
+			Disponible: disponible,
+		}
+		libros = append(libros, libro)                // Agrega el libro a la lista
+		http.Redirect(w, r, "/", http.StatusSeeOther) // Redirige a la página principal
 	}
 }
 
-// Función principal
+// Función principal para manejar rutas y lanzar el servidor
 func main() {
-	// Inicializamos los libros
-	librosIniciales := []Libro{
-		{id: 1, titulo: "El Principito", autor: "Antoine de Saint-Exupéry", anio: 1943, disponible: true},
-		{id: 2, titulo: "1984", autor: "George Orwell", anio: 1949, disponible: true},
-		{id: 3, titulo: "Cien Años de Soledad", autor: "Gabriel García Márquez", anio: 1967, disponible: true},
-		{id: 4, titulo: "Don Quijote de la Mancha", autor: "Miguel de Cervantes", anio: 1605, disponible: true},
-		{id: 5, titulo: "El Hobbit", autor: "J.R.R. Tolkien", anio: 1937, disponible: true},
-		{id: 6, titulo: "Orgullo y Prejuicio", autor: "Jane Austen", anio: 1813, disponible: true},
-		{id: 7, titulo: "Matar a un Ruiseñor", autor: "Harper Lee", anio: 1960, disponible: true},
-		{id: 8, titulo: "La Metamorfosis", autor: "Franz Kafka", anio: 1915, disponible: true},
-		{id: 9, titulo: "Ulises", autor: "James Joyce", anio: 1922, disponible: true},
-		{id: 10, titulo: "El Gran Gatsby", autor: "F. Scott Fitzgerald", anio: 1925, disponible: true}}
+	http.HandleFunc("/", mostrarLibros)             // Página principal
+	http.HandleFunc("/buscar", buscarLibro)         // Buscar libro por ID
+	http.HandleFunc("/actualizar", actualizarLibro) // Actualizar disponibilidad
+	http.HandleFunc("/eliminar", eliminarLibro)     // Eliminar libro
+	http.HandleFunc("/agregar", agregarLibro)       // Agregar un libro nuevo
 
-	// Creamos el gestor de libros
-	gestor := GestorLibros{libros: librosIniciales}
-
-	// Mostrar libros iniciales
-	fmt.Println("Sistema de Gestión de Libros Electrónicos")
-	gestor.MostrarLibros()
-
-	// Buscar un libro
-	fmt.Println("\nBuscando el libro con ID 1:")
-	libro, err := gestor.BuscarLibro(1)
-	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		fmt.Printf("Libro encontrado: %+v\n", libro)
-	}
-
-	// Actualizar disponibilidad
-	fmt.Println("\nActualizando disponibilidad del libro con ID 1:")
-	err = gestor.ActualizarLibro(1, false)
-	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		gestor.MostrarLibros()
-	}
-
-	// Eliminar un libro
-	fmt.Println("\nEliminando el libro con ID 1:")
-	err = gestor.EliminarLibro(1)
-	if err != nil {
-		fmt.Println("Error:", err)
-	} else {
-		gestor.MostrarLibros()
-	}
+	fmt.Println("Servidor iniciado en :8080")
+	http.ListenAndServe(":8080", nil) // Inicia el servidor en el puerto 8080
 }
